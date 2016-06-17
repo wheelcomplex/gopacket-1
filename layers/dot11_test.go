@@ -8,11 +8,11 @@ package layers
 
 import (
 	"bytes"
-	_ "fmt"
-	"github.com/google/gopacket"
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/google/gopacket"
 )
 
 // Generator: python layers/test_creator.py --layerType=LayerTypeRadioTap --linkType=LinkTypeIEEE80211Radio --name=Dot11%s ~/Downloads/mesh.pcap
@@ -147,6 +147,12 @@ func TestPacketDot11MgmtBeacon(t *testing.T) {
 	}
 	checkLayers(p, expectedLayers, t)
 
+	if p.Layer(LayerTypeDot11).(*Dot11).SequenceNumber != 2431 {
+		t.Error("dot11 invalid sequence number")
+	}
+	if p.Layer(LayerTypeDot11).(*Dot11).FragmentNumber != 0 {
+		t.Error("dot11 invalid fragment number")
+	}
 	if _, ok := p.Layer(LayerTypeDot11MgmtBeacon).(*Dot11MgmtBeacon); !ok {
 		t.Errorf("dot11 management beacon frame was expected")
 	}
@@ -413,7 +419,7 @@ func TestPacketDot11DataIP(t *testing.T) {
 	if p.ErrorLayer() != nil {
 		t.Error("Failed to decode packet:", p.ErrorLayer().Error())
 	}
-	checkLayers(p, []gopacket.LayerType{LayerTypeRadioTap, LayerTypeDot11, LayerTypeDot11Data, LayerTypeLLC, LayerTypeSNAP, LayerTypeIPv4, LayerTypeUDP, gopacket.LayerTypePayload}, t)
+	checkLayers(p, []gopacket.LayerType{LayerTypeRadioTap, LayerTypeDot11, LayerTypeDot11Data, LayerTypeLLC, LayerTypeSNAP, LayerTypeIPv4, LayerTypeUDP, LayerTypeDHCPv4}, t)
 }
 func BenchmarkDecodePacketDot11DataIP(b *testing.B) {
 	for i := 0; i < b.N; i++ {

@@ -11,12 +11,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/bytediff"
 	"net"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/bytediff"
 )
 
 var testSimpleTCPPacket []byte = []byte{
@@ -62,10 +63,6 @@ var testSimpleTCPPacket []byte = []byte{
 var testDecodeOptions = gopacket.DecodeOptions{
 	SkipDecodeRecovery: true,
 }
-
-type nilDecodeFeedback struct{}
-
-func (n *nilDecodeFeedback) SetTruncated() {}
 
 // Benchmarks for actual gopacket code
 
@@ -180,7 +177,7 @@ func BenchmarkLazyNoCopy(b *testing.B) {
 
 func BenchmarkKnownStack(b *testing.B) {
 	stack := []gopacket.DecodingLayer{&Ethernet{}, &IPv4{}, &TCP{}, &gopacket.Payload{}}
-	var nf gopacket.DecodeFeedback = &nilDecodeFeedback{}
+	var nf gopacket.DecodeFeedback = gopacket.NilDecodeFeedback
 	for i := 0; i < b.N; i++ {
 		data := testSimpleTCPPacket[:]
 		for _, d := range stack {
@@ -294,7 +291,7 @@ func BenchmarkFmtVerboseString(b *testing.B) {
 	p := gopacket.NewPacket(testSimpleTCPPacket, LinkTypeEthernet, testDecodeOptions)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		fmt.Sprintf("%#v", p)
+		_ = fmt.Sprintf("%#v", p)
 	}
 }
 
@@ -303,7 +300,7 @@ func BenchmarkPacketString(b *testing.B) {
 	p := gopacket.NewPacket(testSimpleTCPPacket, LinkTypeEthernet, testDecodeOptions)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		p.String()
+		_ = p.String()
 	}
 }
 
@@ -312,7 +309,7 @@ func BenchmarkPacketDumpString(b *testing.B) {
 	p := gopacket.NewPacket(testSimpleTCPPacket, LinkTypeEthernet, testDecodeOptions)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		p.String()
+		_ = p.String()
 	}
 }
 
@@ -1210,34 +1207,4 @@ func TestPacketIPv4Fragmented(t *testing.T) {
 	}
 	checkLayers(p, []gopacket.LayerType{LayerTypeEthernet, LayerTypeIPv4, gopacket.LayerTypeFragment}, t)
 	testSerializationWithOpts(t, p, testPacketIPv4Fragmented, gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true})
-}
-
-// testPacketDNSRegression is the packet:
-//   11:08:05.708342 IP 109.194.160.4.57766 > 95.211.92.14.53: 63000% [1au] A? picslife.ru. (40)
-//      0x0000:  0022 19b6 7e22 000f 35bb 0b40 0800 4500  ."..~"..5..@..E.
-//      0x0010:  0044 89c4 0000 3811 2f3d 6dc2 a004 5fd3  .D....8./=m..._.
-//      0x0020:  5c0e e1a6 0035 0030 a597 f618 0010 0001  \....5.0........
-//      0x0030:  0000 0000 0001 0870 6963 736c 6966 6502  .......picslife.
-//      0x0040:  7275 0000 0100 0100 0029 1000 0000 8000  ru.......)......
-//      0x0050:  0000                                     ..
-var testPacketDNSRegression = []byte{
-	0x00, 0x22, 0x19, 0xb6, 0x7e, 0x22, 0x00, 0x0f, 0x35, 0xbb, 0x0b, 0x40, 0x08, 0x00, 0x45, 0x00,
-	0x00, 0x44, 0x89, 0xc4, 0x00, 0x00, 0x38, 0x11, 0x2f, 0x3d, 0x6d, 0xc2, 0xa0, 0x04, 0x5f, 0xd3,
-	0x5c, 0x0e, 0xe1, 0xa6, 0x00, 0x35, 0x00, 0x30, 0xa5, 0x97, 0xf6, 0x18, 0x00, 0x10, 0x00, 0x01,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x08, 0x70, 0x69, 0x63, 0x73, 0x6c, 0x69, 0x66, 0x65, 0x02,
-	0x72, 0x75, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x29, 0x10, 0x00, 0x00, 0x00, 0x80, 0x00,
-	0x00, 0x00,
-}
-
-func TestPacketDNSRegression(t *testing.T) {
-	p := gopacket.NewPacket(testPacketDNSRegression, LinkTypeEthernet, testDecodeOptions)
-	if p.ErrorLayer() != nil {
-		t.Error("Failed to decode packet:", p.ErrorLayer().Error())
-	}
-	checkLayers(p, []gopacket.LayerType{LayerTypeEthernet, LayerTypeIPv4, LayerTypeUDP, LayerTypeDNS}, t)
-}
-func BenchmarkDecodePacketDNSRegression(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		gopacket.NewPacket(testPacketDNSRegression, LinkTypeEthernet, gopacket.NoCopy)
-	}
 }
